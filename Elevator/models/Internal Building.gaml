@@ -14,12 +14,13 @@ global {
 	int max_stage <- 2;
 	int stage_height <- 300;
 	int nb_infected_init <- 1;
+	int elevator_capacity <- 5;
 
 	init {
 		loop i from: min_stage to: max_stage {
 			create Wall from: idecaf_shp {
 				stage <- i;
-				create People number: 100 {
+				create People number: 10 {
 					stage <- i;
 				}
 
@@ -46,18 +47,21 @@ species People skills: [moving] {
 	float speed <- (2 + rnd(3)) #km / #h;
 	bool is_infected <- false;
 	point target;
+	float my_speed <- 20 #m;
 	int stage <- 0;
+	int in_elevator <- 0;
 
 	reflex stay when: target = nil {
 		if flip(0.05) {
 			target <- any_location_in(world.shape);
+			my_speed <- (20 + rnd(30)) #m;
 		}
 
 	}
 
 	reflex move when: target != nil {
-			do goto target:target ;//on: road_network;
-//		do wander speed: 10 #m;
+		do goto target: target speed: my_speed; //on: road_network;
+		//		do wander speed: 20 #m;
 		if (location = target) {
 			target <- nil;
 		}
@@ -65,8 +69,8 @@ species People skills: [moving] {
 	}
 
 	reflex infect when: is_infected {
-		ask (People where (each.stage=self.stage)) at_distance 10 #m {
-			if flip(0.05) {
+		ask (People where (each.stage = self.stage)) at_distance 10 #m {
+			if flip(0.1) {
 				is_infected <- true;
 			}
 
@@ -80,7 +84,7 @@ species People skills: [moving] {
 
 	aspect default {
 	//		if target != nil {
-		draw obj_file("../includes/people.obj", 90::{-1, 0, 0}) size: 25 at: location + {0, 0, stage * stage_height + 25} rotate: heading - 90 color: is_infected ? #red : #green;
+		draw obj_file("../includes/people.obj", 90::{-1, 0, 0}) size: 25 at: location + {0, 0, stage * stage_height + 35} rotate: heading - 90 color: is_infected ? #red : #green;
 		//		}
 
 	}
@@ -91,28 +95,33 @@ species Elevator {
 	int zz <- 0;
 	int stage_src <- min_stage;
 	int stage_dest <- min_stage;
+	list<People> cand <- [];
 
-	reflex called when: flip(0.01) and stage_src = stage_dest {
+	reflex called when: flip(0.05) and stage_src = stage_dest {
 		stage_dest <- rnd(max_stage);
+		cand <- rnd(elevator_capacity) among (People where (each.stage = stage_src));
 	}
 
 	reflex moving when: stage_src != stage_dest {
 		if (stage_dest > stage_src) {
-			zz <- zz + 10;
+			zz <- zz + 50;
 		}
 
 		if (stage_dest < stage_src) {
-			zz <- zz - 10;
+			zz <- zz - 50;
 		}
 
 		if (zz = stage_dest * stage_height) {
+			ask cand{
+				stage<-myself.stage_dest;
+			}
 			stage_src <- stage_dest;
 		}
 
 	}
 
 	aspect default {
-		draw cube(100) at: {location.x, location.y, zz} color: #darkgray;
+		draw cube(200) at: {location.x, location.y, zz} color: #darkgray;
 	}
 
 }
@@ -121,7 +130,7 @@ species Wall {
 	int stage <- 0;
 
 	aspect default {
-		draw shape + 1 at: {location.x, location.y, stage * stage_height} color: #darkgray depth: 50;
+		draw shape at: location + {0, 0, stage * stage_height} color: #darkgray depth: 50;
 	}
 
 }
@@ -136,7 +145,7 @@ species Gate {
 
 experiment InsideBuilding type: gui {
 	output {
-		display "sim" type: opengl {
+		display "sim" type: opengl background:#lightgray {
 			species Wall;
 			species Gate;
 			species Elevator;
