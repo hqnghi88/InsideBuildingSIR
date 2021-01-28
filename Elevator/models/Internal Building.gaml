@@ -11,12 +11,18 @@ global {
 	shape_file gates_shp <- shape_file("../includes/gates.shp");
 	geometry shape <- envelope(idecaf_shp);
 	int min_stage <- 0;
-	int max_stage <- 3;
+	int max_stage <- 2;
+	int stage_height <- 300;
+	int nb_infected_init <- 1;
 
 	init {
 		loop i from: min_stage to: max_stage {
 			create Wall from: idecaf_shp {
 				stage <- i;
+				create People number: 100 {
+					stage <- i;
+				}
+
 			}
 
 		}
@@ -27,6 +33,55 @@ global {
 			}
 
 		}
+
+		ask nb_infected_init among People {
+			is_infected <- true;
+		}
+
+	}
+
+}
+
+species People skills: [moving] {
+	float speed <- (2 + rnd(3)) #km / #h;
+	bool is_infected <- false;
+	point target;
+	int stage <- 0;
+
+	reflex stay when: target = nil {
+		if flip(0.05) {
+			target <- any_location_in(world.shape);
+		}
+
+	}
+
+	reflex move when: target != nil {
+			do goto target:target ;//on: road_network;
+//		do wander speed: 10 #m;
+		if (location = target) {
+			target <- nil;
+		}
+
+	}
+
+	reflex infect when: is_infected {
+		ask (People where (each.stage=self.stage)) at_distance 10 #m {
+			if flip(0.05) {
+				is_infected <- true;
+			}
+
+		}
+
+	}
+
+	aspect circle {
+		draw circle(10) color: is_infected ? #red : #green;
+	}
+
+	aspect default {
+	//		if target != nil {
+		draw obj_file("../includes/people.obj", 90::{-1, 0, 0}) size: 25 at: location + {0, 0, stage * stage_height + 25} rotate: heading - 90 color: is_infected ? #red : #green;
+		//		}
 
 	}
 
@@ -50,7 +105,7 @@ species Elevator {
 			zz <- zz - 10;
 		}
 
-		if (zz = stage_dest * 200) {
+		if (zz = stage_dest * stage_height) {
 			stage_src <- stage_dest;
 		}
 
@@ -66,7 +121,7 @@ species Wall {
 	int stage <- 0;
 
 	aspect default {
-		draw shape + 1 at: {location.x, location.y, stage * 200} color: #darkgray depth: 50;
+		draw shape + 1 at: {location.x, location.y, stage * stage_height} color: #darkgray depth: 50;
 	}
 
 }
@@ -85,6 +140,7 @@ experiment InsideBuilding type: gui {
 			species Wall;
 			species Gate;
 			species Elevator;
+			species People;
 		}
 
 	}
